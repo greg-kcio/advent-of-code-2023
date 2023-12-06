@@ -99,19 +99,33 @@ The gardener and his team want to get started as soon as possible, so they'd lik
 So, the lowest location number in this example is 35.
 
 What is the lowest location number that corresponds to any of the initial seed numbers?
+
+--- Part Two ---
+
+Everyone will starve if you only plant such a small number of seeds. Re-reading the almanac, it looks like the seeds: line actually describes ranges of seed numbers.
+
+The values on the initial seeds: line come in pairs. Within each pair, the first value is the start of the range and the second value is the length of the range. So, in the first line of the example above:
+
+seeds: 79 14 55 13
+
+This line describes two ranges of seed numbers to be planted in the garden. The first range starts with seed number 79 and contains 14 values: 79, 80, ..., 91, 92. The second range starts with seed number 55 and contains 13 values: 55, 56, ..., 66, 67.
+
+Now, rather than considering four seed numbers, you need to consider a total of 27 seed numbers.
+
+In the above example, the lowest location number can be obtained from seed number 82, which corresponds to soil 84, fertilizer 84, water 84, light 77, temperature 45, humidity 46, and location 46. So, the lowest location number is 46.
+
+Consider all of the initial seed numbers listed in the ranges on the first line of the almanac. What is the lowest location number that corresponds to any of the initial seed numbers?
 """
 
+from dataclasses import dataclass
+from functools import reduce
 
+
+@dataclass
 class Mapping:
-    def __init__(self, dst_start, src_start, length):
-        self.dst_start = dst_start
-        self.src_start = src_start
-        self.length = length
-
-    def __call__(self, src: int) -> int:
-        if src in range(self.src_start, self.src_start + self.length):
-            return src - self.src_start + self.dst_start
-        return None
+    dst_start: int
+    src_start: int
+    length: int
 
 
 class Map:
@@ -131,22 +145,14 @@ class Map:
 
         return cls(src_type, dst_type, mappings)
 
-    def __call__(self, src: int) -> int:
-        for mapping in self.mappings:
-            dst = mapping(src)
-            if dst:
-                return dst
-        return src
-
 
 class Almanac:
-    def __init__(self, seeds: list[int], maps: list[Map]):
-        self.seeds = seeds
+    def __init__(self, seeds_and_ranges: list[int, int], maps: list[Map]):
+        self.seeds_and_ranges = seeds_and_ranges  # in the form [(seed, range), ...]
         self.maps = maps
-        self.locations = self._map_seeds_to_location()
 
     @classmethod
-    def from_file(cls, fp: str):
+    def from_file(cls, fp: str, puzzle_part: 1 | 2):
         with open(fp, "r") as f:
             sections = f.read().split("\n\n")
 
@@ -154,26 +160,49 @@ class Almanac:
         for section in sections:
             if section.startswith("seeds:"):
                 seeds = [int(x) for x in section.split(": ")[1].split(" ")]
+                if puzzle_part == 1:
+                    seeds_and_ranges = zip(seeds, [1] * len(seeds))
+                elif puzzle_part == 2:
+                    seeds_and_ranges = zip(seeds[::2], seeds[1::2])
             else:  # it's a map
                 maps.append(Map.from_section(section))
 
-        return cls(seeds, maps)
+        return cls(seeds_and_ranges, maps)
 
-    def _map_seeds_to_location(self) -> list[int]:
-        locations = []
-        for val in self.seeds:
-            # assumes maps are ordered
-            for map_ in self.maps:
-                val = map_(val)
-            locations.append(val)
-        return locations
+    def _apply_mappings(
+        self, seeds_and_ranges: list[tuple[int, int]], map_: Map
+    ) -> list[int]:
+        for seed_start, seed_range in seeds_and_ranges:
+            while seed_range > 0:
+                for mapping in map_.mappings:
+                    # how far ahead the seed start is vs. this mapping's start
+                    delta = seed_start - mapping.src_start
+                    if delta in range(mapping.length):
+                        match_length = min(mapping.length - delta, seed_range)
+                        # we're in range. translate and yield
+                        yield (mapping.dst_start + delta, match_length)
+                        seed_start += match_length
+                        seed_range -= match_length
+                        break
+                else:
+                    # not in range, so no translation
+                    yield (seed_start, seed_range)
+                    break
 
     def nearest_location(self) -> int:
-        return min(self.locations)
+        translated_ranges = reduce(
+            self._apply_mappings, self.maps, self.seeds_and_ranges
+        )
+        return min([location_start for location_start, _ in translated_ranges])
 
 
 def part_1(fp: str) -> int:
-    almanac = Almanac.from_file(fp)
+    almanac = Almanac.from_file(fp, puzzle_part=1)
+    return almanac.nearest_location()
+
+
+def part_2(fp: str) -> int:
+    almanac = Almanac.from_file(fp, puzzle_part=2)
     return almanac.nearest_location()
 
 
@@ -181,3 +210,7 @@ if __name__ == "__main__":
     # part 1
     assert part_1("05-01-small.txt") == 35
     print(part_1("05-01-large.txt"))
+
+    # part 2
+    assert part_2("05-01-small.txt") == 46
+    print(part_2("05-01-large.txt"))
