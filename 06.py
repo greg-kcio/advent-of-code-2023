@@ -50,6 +50,33 @@ from math import ceil, floor, sqrt
 
 
 def part_1(fp: str) -> int:
+    with open(fp, "r") as f:
+        times, distances = f.readlines()
+
+    times = [int(t) for t in times.split(":")[1].split()]
+    distances = [int(d) for d in distances.split(":")[1].split()]
+
+    total = 1
+    for time, distance in zip(times, distances):
+        min_time, max_time = solve_quadratic(time, distance)
+        total *= max_time - min_time + 1
+
+    return total
+
+
+def part_2(fp: str) -> int:
+    with open(fp, "r") as f:
+        times, distances = f.readlines()
+
+    time = int(times.split(":")[1].replace(" ", ""))
+    distance = int(distances.split(":")[1].replace(" ", ""))
+
+    min_time, max_time = solve_quadratic(time, distance)
+
+    return max_time - min_time + 1
+
+
+def solve_quadratic(time: int, distance: int) -> tuple[int, int]:
     """
     Think of each race as a quadratic equation
 
@@ -72,28 +99,16 @@ def part_1(fp: str) -> int:
 
     In all examples, a = 1, b = -time, c = distance
     """
-
-    with open(fp, "r") as f:
-        times, distances = f.readlines()
-
-    times = [int(t) for t in times.split(":")[1].split()]
-    distances = [int(d) for d in distances.split(":")[1].split()]
-
-    total = 1
-    for time, distance in zip(times, distances):
-        discriminant = sqrt(time**2 - (4 * distance))
-        min_time, max_time = sorted(
-            [(time + discriminant) / 2, (time - discriminant) / 2]
-        )
-        min_time, max_time = floor(min_time + 1), ceil(max_time - 1)
-        print(f"min_time: {min_time}, max_time: {max_time}")
-        total *= max_time - min_time + 1
-
-    print(total)
-    return total
+    discriminant = sqrt(time**2 - (4 * distance))
+    min_time, max_time = sorted([(time + discriminant) / 2, (time - discriminant) / 2])
+    return floor(min_time + 1), ceil(max_time - 1)
 
 
 if __name__ == "__main__":
     # part 1
     assert part_1("06-01-small.txt") == 288
     print(part_1("06-01-large.txt"))
+
+    # part 2
+    assert part_2("06-01-small.txt") == 71503
+    print(part_2("06-01-large.txt"))
