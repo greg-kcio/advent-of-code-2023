@@ -72,6 +72,7 @@ Simultaneously start on every node that ends with A. How many steps does it take
 """
 
 from itertools import cycle
+from math import lcm
 
 
 def part_1(fp: str) -> int:
@@ -87,7 +88,6 @@ def part_1(fp: str) -> int:
             return turn + 1
 
 
-# too slow
 def part_2(fp: str) -> int:
     with open(fp, "r") as f:
         instructions, network = f.read().split("\n\n")
@@ -96,11 +96,15 @@ def part_2(fp: str) -> int:
 
     node_keys = [k for k in network if k.endswith("A")]
 
-    for turn, direction in enumerate(cycle(instructions)):
-        for i in range(len(node_keys)):
+    z_turns = []
+    for i in range(len(node_keys)):
+        for turn, direction in enumerate(cycle(instructions)):
             node_keys[i] = network[node_keys[i]][0 if direction == "L" else 1]
-        if all([k.endswith("Z") for k in node_keys]):
-            return turn + 1
+            if node_keys[i].endswith("Z"):
+                z_turns.append(turn + 1)
+                break
+
+    return lcm(*z_turns)
 
 
 if __name__ == "__main__":
