@@ -115,9 +115,6 @@ class Galaxy:
     row: int
     col: int
 
-    def distance(self, other: "Galaxy") -> int:
-        return abs(self.row - other.row) + abs(self.col - other.col)
-
 
 def get_sizes(lines: list[str], expansion_factor: int) -> list[int]:
     """Calculate sizes in vertical direction"""
