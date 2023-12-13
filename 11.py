@@ -95,6 +95,16 @@ This path has length 9 because it takes a minimum of nine steps to get from gala
 In this example, after expanding the universe, the sum of the shortest path between all 36 pairs of galaxies is 374.
 
 Expand the universe, then find the length of the shortest path between every pair of galaxies. What is the sum of these lengths?
+
+--- Part Two ---
+
+The galaxies are much older (and thus much farther apart) than the researcher initially estimated.
+
+Now, instead of the expansion you did before, make each empty row or column one million times larger. That is, each empty row should be replaced with 1000000 empty rows, and each empty column should be replaced with 1000000 empty columns.
+
+(In the example above, if each empty row or column were merely 10 times larger, the sum of the shortest paths between every pair of galaxies would be 1030. If each empty row or column were merely 100 times larger, the sum of the shortest paths between every pair of galaxies would be 8410. However, your universe will need to expand far beyond these values.)
+
+Starting with the same initial image, expand the universe according to these new rules, then find the length of the shortest path between every pair of galaxies. What is the sum of these lengths?
 """
 
 from dataclasses import dataclass
@@ -109,14 +119,15 @@ class Galaxy:
         return abs(self.row - other.row) + abs(self.col - other.col)
 
 
-def expand_vertical(lines: list[str]) -> list[str]:
-    """Expand the universe in the vertical direction"""
-    expanded = []
+def get_sizes(lines: list[str], expansion_factor: int) -> list[int]:
+    """Calculate sizes in vertical direction"""
+    sizes = []
     for line in lines:
-        expanded.append(line)
-        if "#" not in line:
-            expanded.append(line)
-    return expanded
+        if "#" in line:
+            sizes.append(1)
+        else:
+            sizes.append(expansion_factor)
+    return sizes
 
 
 def transpose(lines: list[str]) -> list[str]:
@@ -124,16 +135,13 @@ def transpose(lines: list[str]) -> list[str]:
     return ["".join(line) for line in zip(*lines)]
 
 
-def part_1(fp: str) -> int:
+def solve(fp: str, expansion_factor: int = 2) -> int:
     with open(fp, "r") as f:
-        lines = f.readlines()
+        lines = [line.strip() for line in f.readlines()]
 
-    # expand empty rows
-    lines = expand_vertical(lines)
-
-    # transpose and expand rows again (no need to transpose back)
-    lines = transpose(lines)
-    lines = expand_vertical(lines)
+    # calculate sizes
+    vertical_sizes = get_sizes(lines, expansion_factor)
+    horizontal_sizes = get_sizes(transpose(lines), expansion_factor)
 
     # find galaxies
     galaxies = []
@@ -146,12 +154,24 @@ def part_1(fp: str) -> int:
     total = 0
     for idx, galaxy in enumerate(galaxies[:-1]):  # skip the last galaxy
         for other in galaxies[idx + 1 :]:
-            total += galaxy.distance(other)
+            for r in range(
+                min(galaxy.row, other.row) + 1, max(galaxy.row, other.row) + 1
+            ):
+                total += vertical_sizes[r]
+            for c in range(
+                min(galaxy.col, other.col) + 1, max(galaxy.col, other.col) + 1
+            ):
+                total += horizontal_sizes[c]
 
     return total
 
 
 if __name__ == "__main__":
     # part 1
-    print(part_1("11-01.txt"))
-    print(part_1("11-02.txt"))
+    assert solve("11-01.txt") == 374
+    print(solve("11-02.txt"))
+
+    # part 2
+    assert solve("11-01.txt", 10) == 1030
+    assert solve("11-01.txt", 100) == 8410
+    print(solve("11-02.txt", 1_000_000))
