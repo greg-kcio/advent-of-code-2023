@@ -325,7 +325,6 @@ def solve(fp: str) -> int:
 
 
 if __name__ == "__main__":
-    # part 1
     print(solve("10-01.txt"))  # Distance = 4
     print(solve("10-02.txt"))  # Distance = 4
     print(solve("10-03.txt"))  # Distance = 8
