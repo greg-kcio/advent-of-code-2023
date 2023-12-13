@@ -103,6 +103,106 @@ Here are the distances for each tile on that loop:
 23...
 
 Find the single giant loop starting at S. How many steps along the loop does it take to get from the starting position to the point farthest from the starting position?
+
+--- Part Two ---
+
+You quickly reach the farthest point of the loop, but the animal never emerges. Maybe its nest is within the area enclosed by the loop?
+
+To determine whether it's even worth taking the time to search for such a nest, you should calculate how many tiles are contained within the loop. For example:
+
+...........
+.S-------7.
+.|F-----7|.
+.||.....||.
+.||.....||.
+.|L-7.F-J|.
+.|..|.|..|.
+.L--J.L--J.
+...........
+
+The above loop encloses merely four tiles - the two pairs of . in the southwest and southeast (marked I below). The middle . tiles (marked O below) are not in the loop. Here is the same loop again with those regions marked:
+
+...........
+.S-------7.
+.|F-----7|.
+.||OOOOO||.
+.||OOOOO||.
+.|L-7OF-J|.
+.|II|O|II|.
+.L--JOL--J.
+.....O.....
+
+In fact, there doesn't even need to be a full tile path to the outside for tiles to count as outside the loop - squeezing between pipes is also allowed! Here, I is still within the loop and O is still outside the loop:
+
+..........
+.S------7.
+.|F----7|.
+.||OOOO||.
+.||OOOO||.
+.|L-7F-J|.
+.|II||II|.
+.L--JL--J.
+..........
+
+In both of the above examples, 4 tiles are enclosed by the loop.
+
+Here's a larger example:
+
+.F----7F7F7F7F-7....
+.|F--7||||||||FJ....
+.||.FJ||||||||L7....
+FJL7L7LJLJ||LJ.L-7..
+L--J.L7...LJS7F-7L7.
+....F-J..F7FJ|L7L7L7
+....L7.F7||L7|.L7L7|
+.....|FJLJ|FJ|F7|.LJ
+....FJL-7.||.||||...
+....L---J.LJ.LJLJ...
+
+The above sketch has many random bits of ground, some of which are in the loop (I) and some of which are outside it (O):
+
+OF----7F7F7F7F-7OOOO
+O|F--7||||||||FJOOOO
+O||OFJ||||||||L7OOOO
+FJL7L7LJLJ||LJIL-7OO
+L--JOL7IIILJS7F-7L7O
+OOOOF-JIIF7FJ|L7L7L7
+OOOOL7IF7||L7|IL7L7|
+OOOOO|FJLJ|FJ|F7|OLJ
+OOOOFJL-7O||O||||OOO
+OOOOL---JOLJOLJLJOOO
+
+In this larger example, 8 tiles are enclosed by the loop.
+
+Any tile that isn't part of the main loop can count as being enclosed by the loop. Here's another example with many bits of junk pipe lying around that aren't connected to the main loop at all:
+
+FF7FSF7F7F7F7F7F---7
+L|LJ||||||||||||F--J
+FL-7LJLJ||||||LJL-77
+F--JF--7||LJLJ7F7FJ-
+L---JF-JLJ.||-FJLJJ7
+|F|F-JF---7F7-L7L|7|
+|FFJF7L7F-JF7|JL---7
+7-L-JL7||F7|L7F-7F7|
+L.L7LFJ|||||FJL7||LJ
+L7JLJL-JLJLJL--JLJ.L
+
+Here are just the tiles that are enclosed by the loop marked with I:
+
+FF7FSF7F7F7F7F7F---7
+L|LJ||||||||||||F--J
+FL-7LJLJ||||||LJL-77
+F--JF--7||LJLJIF7FJ-
+L---JF-JLJIIIIFJLJJ7
+|F|F-JF---7IIIL7L|7|
+|FFJF7L7F-JF7IIL---7
+7-L-JL7||F7|L7F-7F7|
+L.L7LFJ|||||FJL7||LJ
+L7JLJL-JLJLJL--JLJ.L
+
+In this last example, 10 tiles are enclosed by the loop.
+
+Figure out whether you have time to search for the nest by calculating the area within the loop. How many tiles are enclosed by the loop?
 """
 
 from dataclasses import dataclass
@@ -124,13 +224,16 @@ class Coord:
     col: int
 
     def get_adjacent(self):
-        """Return a list of 8 adjacent coordinates"""
+        """Return a list of 4 adjacent coordinates"""
         return [
-            Coord(r, c)
-            for r in range(self.row - 1, self.row + 2)
-            for c in range(self.col - 1, self.col + 2)
-            if (r, c) != (self.row, self.col)
+            Coord(self.row - 1, self.col),
+            Coord(self.row + 1, self.col),
+            Coord(self.row, self.col - 1),
+            Coord(self.row, self.col + 1),
         ]
+
+    def __sub__(self, other):
+        return Coord(self.row - other.row, self.col - other.col)
 
 
 @dataclass
@@ -146,7 +249,7 @@ class Node:
         ]
 
 
-def part_1(fp: str) -> int:
+def solve(fp: str) -> int:
     with open(fp, "r") as f:
         lines = f.readlines()
 
@@ -158,6 +261,9 @@ def part_1(fp: str) -> int:
     start_1D = "".join(lines).index("S")
     start_coord = Coord(start_1D // len(lines[0]), start_1D % len(lines[0]))
 
+    # keep track of the path as you go
+    path = [Node(start_coord, "S")]
+
     # search each node adjacent to S and pick the first one that connects to S
     for coord in start_coord.get_adjacent():
         node = Node(coord, lines[coord.row][coord.col])
@@ -166,7 +272,6 @@ def part_1(fp: str) -> int:
             break
 
     # traverse the nodes and track length until you reach S again
-    distance = 1
     while node.pipe != "S":
         # find the next node
         for coord in node.get_connected_coords():
@@ -174,19 +279,59 @@ def part_1(fp: str) -> int:
                 next_coord = coord
                 break
 
-        # update distance and move on
-        distance += 1
+        # update path and move on to the next node
+        path.append(node)
         last_coord = node.coord
         node = Node(next_coord, lines[next_coord.row][next_coord.col])
 
-    # take the total distance traveled, return half
-    return distance // 2
+    # take the total distance traveled, farthest distance is half
+    distance = len(path) // 2
+
+    # ~~ Part 2 ~~ #
+
+    # replace the S with the actual pipe
+    dirs_to_pipe = {v: k for k, v in valid_directions.items()}
+    for k in valid_directions.values():
+        first_coord, second_coord = k
+        dirs_to_pipe[(second_coord, first_coord)] = dirs_to_pipe[k]
+    adjacent_coords = start_coord.get_adjacent()
+    path_coords = [node.coord for node in path]
+    adjacent_directions = [
+        (other - start_coord) for other in adjacent_coords if other in path_coords
+    ]
+    start_pipe = dirs_to_pipe[
+        (
+            (adjacent_directions[0].row, adjacent_directions[0].col),
+            (adjacent_directions[1].row, adjacent_directions[1].col),
+        )
+    ]
+    lines[start_coord.row] = (
+        lines[start_coord.row][: start_coord.col]
+        + start_pipe
+        + lines[start_coord.row][start_coord.col + 1 :]
+    )
+
+    # count tiles inside the loop
+    area = 0
+    for r in range(len(lines)):
+        in_loop = False
+        for c in range(len(lines[0])):
+            if lines[r][c] in "|JL" and Coord(r, c) in path_coords:
+                in_loop = not in_loop
+            elif in_loop and Coord(r, c) not in path_coords:
+                area += 1
+
+    return f"Distance: {distance}, Area: {area}"
 
 
 if __name__ == "__main__":
     # part 1
-    assert part_1("10-01.txt") == 4
-    assert part_1("10-02.txt") == 4
-    assert part_1("10-03.txt") == 8
-    assert part_1("10-04.txt") == 8
-    print(part_1("10-05.txt"))
+    print(solve("10-01.txt"))  # Distance = 4
+    print(solve("10-02.txt"))  # Distance = 4
+    print(solve("10-03.txt"))  # Distance = 8
+    print(solve("10-04.txt"))  # Distance = 8
+    print("⭐", solve("10-05.txt"))  # Solution
+    print(solve("10-06.txt"))  # Area = 4
+    print(solve("10-07.txt"))  # Area = 4
+    print(solve("10-08.txt"))  # Area = 8
+    print(solve("10-09.txt"))  # Area = 10
